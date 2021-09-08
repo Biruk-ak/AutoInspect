@@ -1,0 +1,82 @@
+import type { MaintenanceBase, MaintenanceFilters, MaintenanceStats } from '../types/maintenance';
+import { canTransitionMaintenance, isTerminalMaintenanceStatus, normalizeMaintenanceTags } from '../types/maintenance';
+
+export function buildMaintenanceQueryString(filters: MaintenanceFilters): string {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, String(value));
+    }
+  });
+  return params.toString();
+}
+
+export function summarizeMaintenanceList(items: MaintenanceBase[]): MaintenanceStats {
+  const byStatus: Record<string, number> = {};
+  let amountSum = 0;
+  let active = 0;
+  for (const item of items) {
+    byStatus[item.status] = (byStatus[item.status] || 0) + 1;
+    amountSum += item.amount || 0;
+    if (item.isActive && !isTerminalMaintenanceStatus(item.status)) active += 1;
+  }
+  return {
+    byStatus,
+    total: items.length,
+    active,
+    averageAmount: items.length ? amountSum / items.length : 0,
+  };
+}
+
+export function sortMaintenanceByPriority(items: MaintenanceBase[]): MaintenanceBase[] {
+  return [...items].sort((a, b) => b.priority - a.priority);
+}
+
+export function filterActiveMaintenance(items: MaintenanceBase[]): MaintenanceBase[] {
+  return items.filter((i) => i.isActive && !i.isDeleted);
+}
+
+export function mergeMaintenanceTags(existing: string[], incoming: string[]): string[] {
+  return normalizeMaintenanceTags([...existing, ...incoming]);
+}
+
+export function assertMaintenanceTransition(from: string, to: string): void {
+  if (!canTransitionMaintenance(from, to)) {
+    throw new Error(`Invalid maintenance transition from ${from} to ${to}`);
+  }
+}
+
+export function groupMaintenanceByStatus(items: MaintenanceBase[]): Record<string, MaintenanceBase[]> {
+  return items.reduce((acc, item) => {
+    (acc[item.status] ||= []).push(item);
+    return acc;
+  }, {} as Record<string, MaintenanceBase[]>);
+}
+
+export function paginateMaintenance<T>(items: T[], page: number, limit: number): {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+} {
+  const total = items.length;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const start = (page - 1) * limit;
+  return {
+    items: items.slice(start, start + limit),
+    total,
+    page,
+    limit,
+    totalPages,
+  };
+}
+
+export function computeMaintenanceScore(item: MaintenanceBase): number {
+  let score = item.priority;
+  if (item.isActive) score += 10;
+  if ((item.amount || 0) > 1000) score += 5;
+  if ((item.tags || []).includes('urgent')) score += 20;
+  if (isTerminalMaintenanceStatus(item.status)) score -= 15;
+  return score;
+}

@@ -1,0 +1,82 @@
+import type { RegionBase, RegionFilters, RegionStats } from '../types/regions';
+import { canTransitionRegion, isTerminalRegionStatus, normalizeRegionTags } from '../types/regions';
+
+export function buildRegionQueryString(filters: RegionFilters): string {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, String(value));
+    }
+  });
+  return params.toString();
+}
+
+export function summarizeRegionList(items: RegionBase[]): RegionStats {
+  const byStatus: Record<string, number> = {};
+  let amountSum = 0;
+  let active = 0;
+  for (const item of items) {
+    byStatus[item.status] = (byStatus[item.status] || 0) + 1;
+    amountSum += item.amount || 0;
+    if (item.isActive && !isTerminalRegionStatus(item.status)) active += 1;
+  }
+  return {
+    byStatus,
+    total: items.length,
+    active,
+    averageAmount: items.length ? amountSum / items.length : 0,
+  };
+}
+
+export function sortRegionByPriority(items: RegionBase[]): RegionBase[] {
+  return [...items].sort((a, b) => b.priority - a.priority);
+}
+
+export function filterActiveRegion(items: RegionBase[]): RegionBase[] {
+  return items.filter((i) => i.isActive && !i.isDeleted);
+}
+
+export function mergeRegionTags(existing: string[], incoming: string[]): string[] {
+  return normalizeRegionTags([...existing, ...incoming]);
+}
+
+export function assertRegionTransition(from: string, to: string): void {
+  if (!canTransitionRegion(from, to)) {
+    throw new Error(`Invalid regions transition from ${from} to ${to}`);
+  }
+}
+
+export function groupRegionByStatus(items: RegionBase[]): Record<string, RegionBase[]> {
+  return items.reduce((acc, item) => {
+    (acc[item.status] ||= []).push(item);
+    return acc;
+  }, {} as Record<string, RegionBase[]>);
+}
+
+export function paginateRegion<T>(items: T[], page: number, limit: number): {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+} {
+  const total = items.length;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const start = (page - 1) * limit;
+  return {
+    items: items.slice(start, start + limit),
+    total,
+    page,
+    limit,
+    totalPages,
+  };
+}
+
+export function computeRegionScore(item: RegionBase): number {
+  let score = item.priority;
+  if (item.isActive) score += 10;
+  if ((item.amount || 0) > 1000) score += 5;
+  if ((item.tags || []).includes('urgent')) score += 20;
+  if (isTerminalRegionStatus(item.status)) score -= 15;
+  return score;
+}
