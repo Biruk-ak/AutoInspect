@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: AutoInspect discussions
+    url: https://github.com/Biruk-ak/AutoInspect/issues
+    about: Ask questions or share ideas related to the Vehicle Inspection & Certification Platform.
