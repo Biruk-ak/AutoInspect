@@ -19,7 +19,7 @@ export function EmptyState({
         <button
           type="button"
           onClick={onAction}
-          className="mt-6 rounded-md bg-slate-900 px-4 py-2 text-sm text-white"
+          className="mt-6 rounded-md bg-slate-900 px-4 py-2 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
         >
           {actionLabel}
         </button>
