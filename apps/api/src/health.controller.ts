@@ -8,6 +8,7 @@ export class HealthController {
       status: 'ok',
       service: 'autoinspect-api',
       timestamp: new Date().toISOString(),
+      uptimeSeconds: Math.floor(process.uptime()),
     };
   }
 }
